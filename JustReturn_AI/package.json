@@ -1,0 +1,69 @@
+{
+  "name": "green-ai",
+  "version": "1.1.0",
+  "description": "Invisible AI overlay — invisible to screen sharing",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "start": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
+    "build:all": "vite build && tsc -p tsconfig.electron.json && electron-builder -mw",
+    "build:custom": "node scripts/build-config.js && npm run build:all",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^9.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "postcss": "^8.5.15",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "vite-plugin-electron": "^0.28.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "productName": "System Monitor",
+    "appId": "com.green.ai",
+    "asar": true,
+    "directories": {
+      "output": "output"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "artifactName": "System-Monitor-Mac-${arch}-${version}.${ext}",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "System-Monitor-Windows-${arch}-${version}.${ext}"
+    }
+  }
+}
