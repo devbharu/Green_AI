@@ -90,9 +90,18 @@ async function getImagePreview(filePath: string): Promise<string> {
 
 // ─── AI Processing (Ollama local) ─────────────────────────────────────────────
 
+const MODELS = [
+  { value: 'gemma4:31b-cloud',       vision: true },
+  { value: 'gpt-oss:120b-cloud',     vision: false },
+  { value: 'qwen3-coder:480b-cloud', vision: false },
+  { value: 'gpt-oss:20b-cloud',      vision: false },
+  { value: 'minimax-m3:cloud',       vision: true },
+  { value: 'nemotron-3-super:cloud', vision: false },
+];
+
 function isVisionModel(modelName: string): boolean {
-  // Only Gemma is the vision model
-  return modelName.toLowerCase().includes('gemma');
+  const model = MODELS.find(m => m.value === modelName);
+  return model ? model.vision : false;
 }
 
 async function extractTextFromImages(imagePaths: string[]): Promise<string> {

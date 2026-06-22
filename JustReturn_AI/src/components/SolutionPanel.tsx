@@ -1,5 +1,4 @@
-// src/components/SolutionPanel.tsx
-import React, { useEffect, useRef, useDeferredValue, Suspense } from 'react';
+import React, { useEffect, useRef, useDeferredValue, Suspense, useState } from 'react';
 
 const MarkdownRenderer = React.lazy(() => import('./MarkdownRenderer'));
 
@@ -11,13 +10,22 @@ interface Props {
 
 export function SolutionPanel({ solution, isProcessing, error }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const deferredSolution = useDeferredValue(solution);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  const handleScroll = () => {
+    if (!contentRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setAutoScroll(isNearBottom);
+  };
 
   useEffect(() => {
-    if (isProcessing) {
+    if (isProcessing && autoScroll) {
       endRef.current?.scrollIntoView({ behavior: 'auto' });
     }
-  }, [solution, isProcessing]);
+  }, [solution, isProcessing, autoScroll]);
 
   return (
     <div className="sp-root" onMouseDown={(e) => e.preventDefault()}>
@@ -35,7 +43,7 @@ export function SolutionPanel({ solution, isProcessing, error }: Props) {
 
 
       {/* ── Content ─────────────────────────────────────────────── */}
-      <div className="sp-content">
+      <div className="sp-content" ref={contentRef} onScroll={handleScroll}>
         {error ? (
           <div className="sp-error">{error}</div>
         ) : !solution ? (

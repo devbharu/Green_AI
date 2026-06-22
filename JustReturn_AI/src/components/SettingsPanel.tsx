@@ -10,10 +10,12 @@ interface Props {
 }
 
 const MODELS = [
-  { value: 'gemma4:31b-cloud',       label: 'gemma4:31b-cloud' },
-  { value: 'gpt-oss:120b-cloud',     label: 'gpt-oss:120b-cloud' },
-  { value: 'qwen3-coder:480b-cloud', label: 'qwen3-coder:480b-cloud' },
-  { value: 'gpt-oss:20b-cloud',      label: 'gpt-oss:20b-cloud' },
+  { value: 'gemma4:31b-cloud',       label: 'gemma4:31b-cloud (Vision & Text)', vision: true },
+  { value: 'gpt-oss:120b-cloud',     label: 'gpt-oss:120b-cloud (Text)', vision: false },
+  { value: 'qwen3-coder:480b-cloud', label: 'qwen3-coder:480b-cloud (Text)', vision: false },
+  { value: 'gpt-oss:20b-cloud',      label: 'gpt-oss:20b-cloud (Text)', vision: false },
+  { value: 'minimax-m3:cloud',       label: 'minimax-m3:cloud (Vision & Text)', vision: true },
+  { value: 'nemotron-3-super:cloud', label: 'nemotron-3-super:cloud (Text)', vision: false },
 ];
 
 const SHORTCUTS = [
