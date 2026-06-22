@@ -10,12 +10,12 @@ interface Props {
 }
 
 const MODELS = [
-  { value: 'gemma4:31b-cloud',       label: 'gemma4:31b-cloud (Vision & Text)', vision: true },
-  { value: 'gpt-oss:120b-cloud',     label: 'gpt-oss:120b-cloud (Text)', vision: false },
-  { value: 'qwen3-coder:480b-cloud', label: 'qwen3-coder:480b-cloud (Text)', vision: false },
-  { value: 'gpt-oss:20b-cloud',      label: 'gpt-oss:20b-cloud (Text)', vision: false },
-  { value: 'minimax-m3:cloud',       label: 'minimax-m3:cloud (Vision & Text)', vision: true },
-  { value: 'nemotron-3-super:cloud', label: 'nemotron-3-super:cloud (Text)', vision: false },
+  { value: 'gemma4:31b-cloud',       label: 'gemma4:31b-cloud', vision: true },
+  { value: 'gpt-oss:120b-cloud',     label: 'gpt-oss:120b-cloud', vision: false },
+  { value: 'qwen3-coder:480b-cloud', label: 'qwen3-coder:480b-cloud', vision: false },
+  { value: 'gpt-oss:20b-cloud',      label: 'gpt-oss:20b-cloud', vision: false },
+  { value: 'minimax-m3:cloud',       label: 'minimax-m3:cloud', vision: true },
+  { value: 'nemotron-3-super:cloud', label: 'nemotron-3-super:cloud', vision: false },
 ];
 
 const SHORTCUTS = [
@@ -58,7 +58,17 @@ export const SettingsPanel = React.memo(function SettingsPanel({
               className="stg-dropdown-trigger"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <span>{selectedLabel}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                <span>{selectedLabel}</span>
+                {(() => {
+                  const m = MODELS.find(x => x.value === model);
+                  return m ? (
+                    <span className={`model-badge ${m.vision ? 'model-badge--vision' : 'model-badge--text'}`}>
+                      {m.vision ? 'Vision' : 'Text'}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
               <span className={`stg-chevron ${isDropdownOpen ? 'stg-chevron--open' : ''}`}>▼</span>
             </button>
             {isDropdownOpen && (
@@ -69,8 +79,13 @@ export const SettingsPanel = React.memo(function SettingsPanel({
                     className={`stg-dropdown-option ${model === m.value ? 'stg-dropdown-option--active' : ''}`}
                     onClick={() => { onSaveModel(m.value); setIsDropdownOpen(false); }}
                   >
-                    {model === m.value && <span className="stg-option-dot" />}
-                    {m.label}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                      {model === m.value && <span className="stg-option-dot" />}
+                      <span>{m.label}</span>
+                    </div>
+                    <span className={`model-badge ${m.vision ? 'model-badge--vision' : 'model-badge--text'}`}>
+                      {m.vision ? 'Vision' : 'Text'}
+                    </span>
                   </button>
                 ))}
               </div>

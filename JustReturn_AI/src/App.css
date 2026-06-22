@@ -534,6 +534,33 @@ kbd {
   flex-shrink: 0;
 }
 
+/* Model Badges (Vision/Text) */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  margin-left: auto; /* Push to right if inside a flex container */
+}
+
+.model-badge--vision {
+  color: #F97316; /* Case 1: Orange */
+  background: rgba(45, 25, 15, 0.6); /* Dark brownish-orange */
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.model-badge--text {
+  color: #A78BFA; /* True Violet */
+  background: rgba(139, 92, 246, 0.15); /* Subtle violet */
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
 /* Textarea */
 .stg-textarea {
   background: var(--bg-elevated);
