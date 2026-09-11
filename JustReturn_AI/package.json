@@ -1,6 +1,6 @@
 {
   "name": "green-ai",
-  "version": "1.1.0",
+  "version": "1.4.6",
   "description": "Invisible AI overlay — invisible to screen sharing",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -39,6 +39,7 @@
   "build": {
     "productName": "System Monitor",
     "appId": "com.green.ai",
+    "afterSign": "scripts/afterSign.js",
     "asar": true,
     "directories": {
       "output": "output"
@@ -48,11 +49,27 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "dmg",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "pkg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "artifactName": "System-Monitor-Mac-${arch}-${version}.${ext}",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "NSScreenCaptureUsageDescription": "This app requires screen recording access to capture screenshots for AI processing."
+      }
     },
     "win": {
       "target": [
@@ -64,6 +81,23 @@
         }
       ],
       "artifactName": "System-Monitor-Windows-${arch}-${version}.${ext}"
+    },
+    "nsis": {
+      "include": "build/installer.nsh",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "System Monitor",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": true
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts",
+      "installLocation": "/Applications",
+      "allowAnywhere": true,
+      "allowCurrentUserHome": true,
+      "allowRootDirectory": true
     }
   }
 }

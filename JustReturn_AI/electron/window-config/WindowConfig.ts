@@ -57,12 +57,13 @@ export interface WindowBaseSettings {
   acceptFirstMouse?: boolean;
   enableLargerThanScreen: boolean;
   frame: boolean;
+  resizable: boolean;
   hasShadow: boolean;
   transparent: boolean;
   skipTaskbar: boolean;
   titleBarStyle?: 'hidden' | 'default' | 'hiddenInset' | 'customButtonsOnHover';
   backgroundColor: string;
-  type: string;
+  type?: string; // platform-specific: 'panel' (macOS) or 'toolbar' (Windows) — set in createWindow(), not in shared baseSettings
   paintWhenInitiallyHidden: boolean;
   movable: boolean;
   backgroundMaterial?: 'auto' | 'none' | 'mica' | 'acrylic' | 'tabbed';

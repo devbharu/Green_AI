@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose safe IPC APIs to renderer (React)
 contextBridge.exposeInMainWorld('electronAPI', {
   // Window control
+  getPlatform: () => process.platform,
   toggleWindow: () => ipcRenderer.invoke('toggle-window'),
   hideWindow: () => ipcRenderer.invoke('hide-window'),
   showWindow: () => ipcRenderer.invoke('show-window'),
@@ -32,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Utilities
   copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),
+  readFromClipboard: () => ipcRenderer.invoke('read-from-clipboard'),
 
   // Listeners (renderer subscribes to main process events)
   onScreenshotTaken: (cb: (data: { path: string; preview: string }) => void) => {
@@ -87,3 +89,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifyViewChange: (view: string) =>
     ipcRenderer.send('notify-view-change', view),
 });
+
+// Windows trackpad pinch zoom emits a mousewheel event with Ctrl held.
+// We intercept this on the frontend to stop Chromium from zooming and fighting the OS.
+if (process.platform === 'win32') {
+  window.addEventListener('mousewheel', (e: Event) => {
+    const wheelEvent = e as WheelEvent;
+    if (wheelEvent.ctrlKey) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}

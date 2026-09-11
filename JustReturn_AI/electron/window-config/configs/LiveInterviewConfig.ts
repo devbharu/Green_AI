@@ -6,21 +6,24 @@ export const LiveInterviewConfig: WindowConfig = {
     width: 700,
     height: 500,
     alwaysOnTop: true,
-    show: true,
+    show: false,
     fullscreenable: false,
     focusable: false,
     acceptFirstMouse: false,
     enableLargerThanScreen: true,
     frame: false,
+    resizable: false,
     hasShadow: false,
     transparent: true,
     skipTaskbar: true,
     titleBarStyle: 'hidden',
     backgroundColor: '#00000000',
-    type: 'panel',
+    // NOTE: `type` is NOT set here — it is injected per-platform in createWindow():
+    //   macOS → 'panel'   (NSWindowStyleMaskNonactivatingPanel, no focus steal)
+    //   Windows → 'toolbar' (WS_EX_TOOLWINDOW, excluded from Alt+Tab)
     paintWhenInitiallyHidden: true,
     movable: true,
-    backgroundMaterial: 'acrylic', // Native Windows 11 glassy blur
+    // backgroundMaterial removed — 'acrylic' conflicts with WDA_EXCLUDEFROMCAPTURE on Windows
   },
   behavior: {
     // --- SHOW: overlay visible and scrollable ---
@@ -32,7 +35,8 @@ export const LiveInterviewConfig: WindowConfig = {
       alwaysOnTopLevel: 'screen-saver',
       visibleOnAllWorkspaces: true,
       visibleOnFullScreen: true,
-      focusable: false,
+      // Windows: factory always enforces focusable=false via effectiveFocusable; this value only applies on macOS
+      focusable: true,
       contentProtection: true,
     },
 
@@ -84,6 +88,7 @@ export const LiveInterviewConfig: WindowConfig = {
       alwaysOnTopLevel: 'screen-saver',
       visibleOnAllWorkspaces: true,
       visibleOnFullScreen: true,
+      // Windows: factory always enforces focusable=false via effectiveFocusable; this value only applies on macOS
       focusable: true,
       contentProtection: true,
     },
@@ -97,7 +102,7 @@ export const LiveInterviewConfig: WindowConfig = {
         hasShadow: false,
       },
       win32: {
-        thickFrame: false,             // no resize handles
+        thickFrame: false,
       },
     },
   },

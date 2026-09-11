@@ -17,6 +17,7 @@ export interface ElectronAPI {
   setSystemPrompt: (prompt: string) => Promise<void>;
   getSystemPrompt: () => Promise<string>;
   copyToClipboard: (text: string) => Promise<void>;
+  readFromClipboard: () => Promise<string>;
   onScreenshotTaken: (cb: (data: { path: string; preview: string }) => void) => () => void;
   onAiResponse: (cb: (chunk: string) => void) => () => void;
   onAiDone: (cb: () => void) => () => void;
@@ -28,6 +29,7 @@ export interface ElectronAPI {
   onWindowDimensionsRequest: (cb: (dims: { width: number; height: number }) => void) => () => void;
   reportDimensions: (width: number, height: number) => void;
   notifyViewChange: (view: string) => void;
+  getPlatform: () => string;
 }
 
 declare global {

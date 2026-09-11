@@ -1,6 +1,8 @@
 // electron/shortcuts.ts
 import { globalShortcut } from 'electron';
 
+// No deferral or blur hacks needed anymore because the window
+// is a persistent overlay that never changes OS-level visibility.
 export interface ShortcutDeps {
   getMainWindow: () => Electron.BrowserWindow | null;
   takeScreenshot: () => Promise<string>;
@@ -62,18 +64,26 @@ export class ShortcutsHelper {
       this.deps.toggleSettings();
     });
 
-    // Arrow keys — move overlay
-    globalShortcut.register('CommandOrControl+Left', () => this.deps.moveWindowLeft());
-    globalShortcut.register('CommandOrControl+Right', () => this.deps.moveWindowRight());
-    globalShortcut.register('CommandOrControl+Down', () => this.deps.moveWindowDown());
-    globalShortcut.register('CommandOrControl+Up', () => this.deps.moveWindowUp());
+    // Arrow keys — move overlay (Ctrl on Windows, Cmd on Mac)
+    globalShortcut.register('CommandOrControl+Left', () => {
+      this.deps.moveWindowLeft();
+    });
+    globalShortcut.register('CommandOrControl+Right', () => {
+      this.deps.moveWindowRight();
+    });
+    globalShortcut.register('CommandOrControl+Down', () => {
+      this.deps.moveWindowDown();
+    });
+    globalShortcut.register('CommandOrControl+Up', () => {
+      this.deps.moveWindowUp();
+    });
 
     // Cmd+B — toggle show/hide
     globalShortcut.register('CommandOrControl+B', () => {
       this.deps.toggleMainWindow();
     });
 
-    // Cmd+Q — kill app
+    // Cmd+Q — kill app (no deferral — quit is immediate by design)
     globalShortcut.register('CommandOrControl+Q', () => {
       this.deps.quitApp();
     });
@@ -100,3 +110,4 @@ export class ShortcutsHelper {
     globalShortcut.unregisterAll();
   }
 }
+

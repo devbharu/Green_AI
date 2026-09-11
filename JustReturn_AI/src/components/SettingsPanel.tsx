@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 interface Props {
   apiKey: string;
@@ -28,6 +28,78 @@ const SHORTCUTS = [
   { keys: ['Ctrl/Cmd', 'Arrows'], desc: 'Move overlay' },
 ];
 
+// Detect platform once — avoids repeated IPC calls
+const isWindows = typeof window !== 'undefined' && window.electronAPI?.getPlatform?.() === 'win32';
+
+function VirtualPromptInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const handlePaste = async () => {
+    try {
+      // Use the IPC method to read from the main process clipboard
+      const text = await window.electronAPI.readFromClipboard();
+      if (text) {
+        onChange(text);
+      }
+    } catch (err) {
+      console.error('Failed to paste from clipboard:', err);
+    }
+  };
+
+  const handleClear = () => {
+    onChange('');
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="apple-prompt-box" style={{ cursor: 'default' }}>
+        <div className="apple-prompt-content">
+          {value ? (
+            <span>{value}</span>
+          ) : (
+            <span className="apple-prompt-placeholder">
+              System prompt is empty.
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          className="stg-dropdown-trigger"
+          style={{ flex: 1, justifyContent: 'center', height: '32px' }}
+          onClick={handlePaste}
+        >
+          Paste from Clipboard
+        </button>
+        {value && (
+          <button
+            className="stg-dropdown-trigger"
+            style={{ flex: 1, justifyContent: 'center', height: '32px', color: '#ff453a' }}
+            onClick={handleClear}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Platform-Aware System Prompt Input ───────────────────────────────────────
+// macOS: native <textarea> — NSPanel guarantees no focus stealing
+// Windows: VirtualPromptInput — manual keydown capture since focusable:false
+function SystemPromptInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  if (isWindows) {
+    return <VirtualPromptInput value={value} onChange={onChange} />;
+  }
+  return (
+    <textarea
+      className="stg-textarea"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Optional system prompt..."
+    />
+  );
+}
+
 export const SettingsPanel = React.memo(function SettingsPanel({
   apiKey, model, systemPrompt,
   onSaveApiKey, onSaveModel, onSaveSystemPrompt
@@ -51,7 +123,6 @@ export const SettingsPanel = React.memo(function SettingsPanel({
           <label className="stg-label">Model</label>
           <div
             className="stg-dropdown-wrap"
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -97,14 +168,8 @@ export const SettingsPanel = React.memo(function SettingsPanel({
         {/* System Prompt */}
         <div className="stg-section">
           <label className="stg-label">System Prompt</label>
-          <textarea
-            className="stg-textarea"
-            value={systemPrompt}
-            onChange={(e) => onSaveSystemPrompt(e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-            placeholder="Optional system prompt..."
-          />
-          <span className="stg-hint">Sent as context before the images/text.</span>
+          <SystemPromptInput value={systemPrompt} onChange={onSaveSystemPrompt} />
+          <span className="stg-hint">Sent as context before images or text.</span>
         </div>
 
         {/* Shortcuts */}

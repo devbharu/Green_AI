@@ -28,7 +28,7 @@ export function SolutionPanel({ solution, isProcessing, error }: Props) {
   }, [solution, isProcessing, autoScroll]);
 
   return (
-    <div className="sp-root" onMouseDown={(e) => e.preventDefault()}>
+    <div className="sp-root">
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="sp-header">

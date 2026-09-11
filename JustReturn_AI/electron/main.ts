@@ -50,7 +50,7 @@ const state: AppState = {
   isProcessing: false,
   apiKey: '',
   model: 'gemma4:31b-cloud',
-  systemPrompt: 'You are an elite coding assistant. You MUST format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.',
+  systemPrompt: 'You are an elite coding assistant. For coding questions, you MUST provide the code with NO comments in it. Format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.\n\nFor Multiple Choice Questions (MCQs), provide the direct answer option first, and at the end provide a little explanation.',
   shortcutsHelper: null,
   abortController: null,
 };
@@ -58,6 +58,26 @@ const state: AppState = {
 const STEP = 60; // pixels per arrow-key move
 
 const isDev = process.env.NODE_ENV === 'development';
+
+if (process.platform === 'win32') {
+  // ── Chromium Win32 activation prevention ─────────────────────────────────
+  // Force Chromium to disable the native touch gesture translation layer
+  app.commandLine.appendSwitch('touch-events', 'disabled');
+  app.commandLine.appendSwitch('disable-smooth-scrolling');
+
+  // ROOT CAUSE 1: Disable Chromium's native occlusion tracker.
+  // CalculateNativeWinOcclusion fires internal activation events when the window
+  // becomes visible, completely bypassing Win32 WM_ACTIVATE hooks.
+  // This is the primary reason focusable:false + hookWindowMessage alone don't work.
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
+  // Stop Chromium from throttling the renderer when it's in the background.
+  // When throttle releases on show, Chromium can emit a 'resume' event that
+  // the DWM interprets as a foreground activation request.
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+}
 
 // ─── Screenshot helpers ───────────────────────────────────────────────────────
 
@@ -137,7 +157,7 @@ async function processScreenshots(): Promise<void> {
 
   try {
     let images: string[] | undefined = undefined;
-    let textContent = 'Solve the problem in these images. Provide ONLY the solution code block followed by an "Explanation:" section.';
+    let textContent = 'Solve the problem in these images. Follow the formatting instructions in the system prompt.';
 
     if (isVisionModel(state.model)) {
       // Build base64 images array for Ollama
@@ -147,7 +167,7 @@ async function processScreenshots(): Promise<void> {
       });
     } else {
       const extractedText = await extractTextFromImages(state.screenshotQueue);
-      textContent = `Solve the problem shown in the following extracted text from screenshots:\n\n${extractedText}\n\nYou MUST start your response immediately with the markdown code block containing the solution. Put your explanation AFTER the code block.`;
+      textContent = `Solve the problem shown in the following extracted text from screenshots:\n\n${extractedText}\n\nFollow the formatting instructions in the system prompt.`;
     }
 
     const payload: any = {
@@ -301,29 +321,101 @@ function isWindowCompletelyOffScreen(x: number, y: number, w: number, h: number)
   return x + w < 0 || y + h < 0 || x > width || y > height;
 }
 
+// ── Smooth Animated Resize ────────────────────────────────────────────────────
+// Animates window size from current → target with ease-out easing.
+// When a new target arrives mid-animation, we cancel and restart from the
+// CURRENT window size — this creates a smooth chain with no jumps.
+
+let resizeAnimationTimer: ReturnType<typeof setInterval> | null = null;
+let resizeTargetW = 0;
+let resizeTargetH = 0;
+const RESIZE_DURATION = 200; // ms — fast but smooth
+const RESIZE_INTERVAL = 16;  // ~60fps
+const RESIZE_STEPS = Math.ceil(RESIZE_DURATION / RESIZE_INTERVAL);
+
+function easeOut(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function startResizeAnimation(fromW: number, fromH: number, toW: number, toH: number): void {
+  let step = 0;
+
+  resizeAnimationTimer = setInterval(() => {
+    if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+      if (resizeAnimationTimer) { clearInterval(resizeAnimationTimer); resizeAnimationTimer = null; }
+      return;
+    }
+
+    step++;
+    const t = Math.min(step / RESIZE_STEPS, 1);
+    const eased = easeOut(t);
+
+    const w = Math.round(fromW + (toW - fromW) * eased);
+    const h = Math.round(fromH + (toH - fromH) * eased);
+
+    state.mainWindow!.setContentSize(w, h);
+
+    if (t >= 1) {
+      clearInterval(resizeAnimationTimer!);
+      resizeAnimationTimer = null;
+      state.mainWindow!.setContentSize(toW, toH);
+      state.windowSize = { width: toW, height: toH };
+
+    }
+  }, RESIZE_INTERVAL);
+}
+
 function setWindowDimensions(width: number, height: number): void {
   if (!state.mainWindow || state.mainWindow.isDestroyed()) return;
 
-  const [currentX, currentY] = state.mainWindow.getPosition();
   const workArea = screen.getPrimaryDisplay().workAreaSize;
   const maxWidth = Math.floor(workArea.width * 0.55);
 
   const newWidth = Math.min(width + 32, maxWidth);
-  const newHeight = Math.ceil(height) + 8; // +8 so bottom shadow/radius isn't clipped
+  const newHeight = Math.ceil(height) + 8;
 
-  let adjustedX = currentX;
-  let adjustedY = currentY;
+  // Use stored position
+  let adjustedX = state.currentX;
+  let adjustedY = state.currentY;
 
-  if (isWindowCompletelyOffScreen(currentX, currentY, newWidth, newHeight)) {
+  if (isWindowCompletelyOffScreen(adjustedX, adjustedY, newWidth, newHeight)) {
     adjustedX = Math.max(0, (workArea.width - newWidth) / 2);
     adjustedY = Math.max(0, (workArea.height - newHeight) / 2);
+    state.currentX = adjustedX;
+    state.currentY = adjustedY;
+    state.windowPosition = { x: adjustedX, y: adjustedY };
   }
 
-  state.mainWindow.setBounds({ x: adjustedX, y: adjustedY, width: newWidth, height: newHeight });
-  state.currentX = adjustedX;
-  state.currentY = adjustedY;
-  state.windowPosition = { x: adjustedX, y: adjustedY };
-  state.windowSize = { width: newWidth, height: newHeight };
+  // Already heading to this exact target
+  if (resizeTargetW === newWidth && resizeTargetH === newHeight) return;
+  // Already at this size and no animation running
+  if (!resizeAnimationTimer && state.windowSize &&
+      state.windowSize.width === newWidth && state.windowSize.height === newHeight) return;
+
+  resizeTargetW = newWidth;
+  resizeTargetH = newHeight;
+
+  // Cancel any running animation
+  if (resizeAnimationTimer) {
+    clearInterval(resizeAnimationTimer);
+    resizeAnimationTimer = null;
+  }
+
+  const [curW, curH] = state.mainWindow.getContentSize();
+  const deltaW = Math.abs(newWidth - curW);
+  const deltaH = Math.abs(newHeight - curH);
+
+  // Small changes (< 60px): snap instantly — imperceptible as a snap,
+  // but animation makes them feel like a "jump". Only animate big changes.
+  // On Windows, ALWAYS snap instantly because frequent resize events (animation) trigger anti-cheat focus loss detection.
+  if (state.isProcessing || (deltaW < 60 && deltaH < 60) || process.platform === 'win32') {
+    state.mainWindow.setContentSize(newWidth, newHeight);
+    state.windowSize = { width: newWidth, height: newHeight };
+    return;
+  }
+
+  // Big changes (view switches, initial content load): smooth animation
+  startResizeAnimation(curW, curH, newWidth, newHeight);
 }
 
 // ─── Window Show/Hide ─────────────────────────────────────────────────────────
@@ -336,21 +428,16 @@ function showMainWindow(): void {
 
     const configFactory = WindowConfigFactory.getInstance();
 
-    // Flash-free show: set opacity 0, showInactive (no focus steal), then restore
-    state.mainWindow!.setOpacity(0);
-    
-    // Default to prohibited on show (renderer will update if settings is open)
+    // macOS: switch to prohibited so this app never becomes foreground on show
     if (process.platform === 'darwin') {
       app.setActivationPolicy('prohibited');
     }
-    
-    state.mainWindow!.showInactive();               // ← NO focus steal
-    configFactory.applyShowBehavior(state.mainWindow!, state.appMode);
 
-    // FOCUS BYPASS: ensure the window stays non-focusable after showing.
-    // Even though showInactive() doesn't focus, some OS events can still
-    // trigger a focus gain. Belt-and-suspenders.
-    state.mainWindow!.setFocusable(false);
+    // applyShowBehavior owns the full show lifecycle:
+    //   1. showSafe() → showInactive() on Windows (SW_SHOWNOACTIVATE), show() on macOS
+    //   2. applyVisibilityConfig() → locks focus/level/opacity AFTER handle is active
+    // Do NOT call showInactive() or blur() manually here — that would double-show.
+    configFactory.applyShowBehavior(state.mainWindow!, state.appMode);
 
     state.isWindowVisible = true;
     state.shortcutsHelper?.registerAllShortcuts();
@@ -387,7 +474,8 @@ function toggleMainWindow(): void {
 function moveWindowHorizontal(updateFn: (x: number) => number): void {
   if (!state.mainWindow) return;
   state.currentX = updateFn(state.currentX);
-  state.mainWindow.setPosition(Math.round(state.currentX), Math.round(state.currentY));
+  state.windowPosition = { x: Math.round(state.currentX), y: Math.round(state.currentY) };
+  state.mainWindow.setPosition(state.windowPosition.x, state.windowPosition.y);
 }
 
 function moveWindowVertical(updateFn: (y: number) => number): void {
@@ -400,7 +488,8 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
 
   if (newY >= maxUpLimit && newY <= maxDownLimit) {
     state.currentY = newY;
-    state.mainWindow.setPosition(Math.round(state.currentX), Math.round(state.currentY));
+    state.windowPosition = { x: Math.round(state.currentX), y: Math.round(state.currentY) };
+    state.mainWindow.setPosition(state.windowPosition.x, state.windowPosition.y);
   }
 }
 
@@ -447,8 +536,16 @@ function createWindow(): void {
   const windowConfig = LiveInterviewConfig;
   const platformConfig = windowConfig.behavior.platformSpecific;
 
-  // Win32-specific: disable thick frame (resize handles)
-  const windowsSpecificOptions =
+  // Inject platform-specific window type:
+  //   macOS  → 'panel'   = NSWindowStyleMaskNonactivatingPanel (never steals focus, floats above all)
+  //   Windows → 'toolbar' = WS_EX_TOOLWINDOW (excluded from Alt+Tab, prevents DWM activation)
+  //   Linux  → omitted   (no special type needed)
+  const platformTypeOption: { type?: string } =
+    process.platform === 'darwin' ? { type: 'panel' } :
+    process.platform === 'win32'  ? { type: 'toolbar' } :
+    {};
+
+  const windowsSpecificOptions: Electron.BrowserWindowConstructorOptions =
     process.platform === 'win32' && platformConfig.win32
       ? { thickFrame: platformConfig.win32.thickFrame }
       : {};
@@ -457,6 +554,7 @@ function createWindow(): void {
 
   state.mainWindow = new BrowserWindow({
     ...baseSettings,
+    ...platformTypeOption,
     ...windowsSpecificOptions,
     x: state.currentX,
     y: 50,
@@ -465,19 +563,26 @@ function createWindow(): void {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
       scrollBounce: true,
+      // ROOT CAUSE 5: Prevent Chromium 'resume' event on throttle-release triggering
+      // DWM foreground activation when the overlay transitions from hidden to visible.
+      backgroundThrottling: false,
     },
   });
 
-  // ── THE THREE CORE INVISIBILITY CALLS (from blog) ──────────────────────────
-  //   1. setContentProtection → WDA_EXCLUDEFROMCAPTURE (Win) / NSWindowSharingNone (Mac)
-  //   2. setVisibleOnAllWorkspaces → persist across virtual desktops + full-screen
+  // ── THE THREE CORE INVISIBILITY CALLS ──────────────────────────────────────
+  //   1. setContentProtection  → WDA_EXCLUDEFROMCAPTURE (Win) / NSWindowSharingNone (Mac)
+  //   2. setVisibleOnAllWorkspaces → persist across Spaces/full-screen (macOS ONLY — no-op on Windows)
   //   3. setAlwaysOnTop 'screen-saver' → highest level, above full-screen apps
   state.mainWindow.setContentProtection(true);
-  state.mainWindow.setVisibleOnAllWorkspaces(true, { 
-    visibleOnFullScreen: true,
-    skipTransformProcessType: true
-  });
-  state.mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+  if (process.platform === 'darwin') {
+    // Windows Electron maps this to a no-op — skipping avoids pointless IPC overhead
+    // and removes any risk of it being implemented differently in future Electron versions.
+    state.mainWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
+  }
+  // setAlwaysOnTop is handled per-platform by WindowConfigFactory.applyVisibilityConfig()
 
   // macOS: hide from Mission Control, remove shadow
   if (process.platform === 'darwin' && platformConfig.darwin) {
@@ -486,7 +591,31 @@ function createWindow(): void {
     state.mainWindow.setWindowButtonVisibility(platformConfig.darwin.windowButtonVisibility);
   }
 
-  state.mainWindow.on('focus', handleWindowFocus);
+  // Win32: force-hide menu bar and remove default menu (no equivalent needed on macOS)
+  if (process.platform === 'win32') {
+    state.mainWindow.setMenuBarVisibility(false);
+    state.mainWindow.setAutoHideMenuBar(true);
+    state.mainWindow.removeMenu();
+    state.mainWindow.setHasShadow(false);
+
+    // ── Win32 Non-Activating Focus Prevention Hooks ──────────────────────────────
+    // Intercept WM_MOUSEACTIVATE (0x0021), WM_ACTIVATE (0x0006), and WM_NCACTIVATE (0x0086).
+    // Returning MA_NOACTIVATE / 0 tells Windows OS to NEVER transfer active foreground
+    // status to this window or broadcast WM_KILLFOCUS to background applications.
+    const WM_MOUSEACTIVATE = 0x0021;
+    const MA_NOACTIVATE = 3;
+    const WM_ACTIVATE = 0x0006;
+    const WM_NCACTIVATE = 0x0086;
+
+    state.mainWindow.hookWindowMessage(WM_MOUSEACTIVATE, () => MA_NOACTIVATE);
+    state.mainWindow.hookWindowMessage(WM_ACTIVATE, () => 0);
+    state.mainWindow.hookWindowMessage(WM_NCACTIVATE, () => 0);
+  }
+
+  // macOS: preserve platform config on focus (darwin doesn't need blur since NSPanel never steals focus)
+  if (process.platform !== 'win32') {
+    state.mainWindow.on('focus', handleWindowFocus);
+  }
 
   state.windowSize = { width: baseSettings.width, height: baseSettings.height };
   state.windowPosition = { x: state.currentX, y: 50 };
@@ -526,7 +655,11 @@ function createWindow(): void {
     quitApp: () => app.quit(),
   });
 
-  // Start hidden — show on first toggle
+  // Initialize the window as visible at the OS level but inactive,
+  // then instantly apply the hide styling (opacity 0, ignore mouse)
+  if (state.mainWindow) {
+    state.mainWindow.showInactive();
+  }
   hideMainWindow();
 }
 
@@ -577,6 +710,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle('copy-to-clipboard', (_e, text: string) => {
     clipboard.writeText(text);
   });
+  ipcMain.handle('read-from-clipboard', () => {
+    return clipboard.readText();
+  });
   // Renderer reports its own dimensions → main resizes window
   ipcMain.on('report-dimensions', (_e, { width, height }: { width: number; height: number }) => {
     setWindowDimensions(width, height);
@@ -586,11 +722,12 @@ function registerIpcHandlers(): void {
   ipcMain.on('notify-view-change', (_e, view: string) => {
     if (!state.mainWindow || state.mainWindow.isDestroyed() || !state.isWindowVisible) return;
     const configFactory = WindowConfigFactory.getInstance();
-    
+
     if (view === 'settings') {
       configFactory.applySettingsBehavior(state.mainWindow, state.appMode);
     } else if (view === 'solution') {
-      configFactory.applyShowBehavior(state.mainWindow, state.appMode);
+      // Window is already visible — use applyVisibilityForView (no showSafe/double-show)
+      configFactory.applyVisibilityForView(state.mainWindow, state.appMode);
     } else if (view === 'queue') {
       if (state.screenshotQueue.length > 0) {
         configFactory.applyQueueWithScreenshots(state.mainWindow, state.appMode);
@@ -611,6 +748,13 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.setActivationPolicy('accessory');
   }
+  // ROOT CAUSE 3: Register AppUserModelId BEFORE createWindow().
+  // Without this, Windows treats the process as unregistered, weakening foreground-lock
+  // protection and allowing focusable:false to be bypassed on first show.
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.green.ai'); // must match appId in package.json
+  }
+
   registerIpcHandlers();
   createWindow();
 
@@ -625,4 +769,20 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+
+  // Clean up screenshot cache on exit to prevent userData from growing unboundedly.
+  // Each session's screenshots are ephemeral — no value in persisting them.
+  try {
+    const screenshotDir = path.join(app.getPath('userData'), 'screenshots');
+    if (fs.existsSync(screenshotDir)) {
+      const files = fs.readdirSync(screenshotDir);
+      for (const file of files) {
+        if (file.endsWith('.png')) {
+          fs.unlinkSync(path.join(screenshotDir, file));
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — cleanup failure should never prevent the app from quitting
+  }
 });

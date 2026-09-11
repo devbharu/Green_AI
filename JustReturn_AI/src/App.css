@@ -342,7 +342,7 @@ kbd {
 .sp-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--accent);
   letter-spacing: -0.01em;
 }
 .sp-streaming-badge {
@@ -576,6 +576,9 @@ kbd {
   line-height: 1.55;
   transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
   box-shadow: 0 1px 3px rgba(0,0,0,0.3) inset, 0 0.5px 0 rgba(255,255,255,0.08) inset;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-app-region: no-drag;
 }
 .stg-textarea:focus { 
   border-color: var(--accent);
@@ -672,7 +675,7 @@ kbd {
   border-radius: 4px;
   padding: 2px 9px;
   font-size: 10px;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.2s var(--spring-soft);
 }
 .copy-btn:hover { 
@@ -692,4 +695,97 @@ kbd {
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text);
+}
+/* ─────────────────────────────────────────────────────────────────────────────
+   WINDOWS SPECIFIC ANIMATION OVERRIDES
+   DWM struggles with backdrop-filter combined with scale/translate animations.
+   Even opacity animations trigger DWM composition updates during show,
+   which steals focus. So we completely disable enter animations on Windows.
+───────────────────────────────────────────────────────────────────────────── */
+body.win32 .panel-glass {
+  animation: none !important;
+}
+
+body.win32 .view-enter {
+  animation: none !important;
+}
+
+body.win32 .sq-thumb {
+  animation: none !important;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  will-change: box-shadow, border-color;
+}
+body.win32 .sq-thumb:hover {
+  transform: none;
+}
+
+body.win32 .stg-dropdown-options {
+  animation: none !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   WINDOWS: PANEL-GLASS DWM-SAFE OVERRIDES
+   backdrop-filter + will-change:transform cause DCompositionDevice::Commit()
+   calls that trigger WM_WINDOWPOSCHANGED → activation events on DWM.
+   Replace with solid background and opacity-only GPU hints.
+───────────────────────────────────────────────────────────────────────────── */
+body.win32 .panel-glass {
+  /* Solid background instead of backdrop-filter blur — DWM can't recomposite what isn't there */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(18, 18, 22, 0.96);
+
+  /* Opacity-only GPU layer — no transform layer that pokes DWM */
+  will-change: opacity;
+  transform: none;
+  backface-visibility: initial;
+
+  /* Tighter containment — prevents layout thrash from leaking to compositor */
+  contain: content;
+}
+
+/* ── Apple-Style Stealth System Prompt Box ──────────────────────────────────── */
+.apple-prompt-box {
+  width: 100%;
+  min-height: 80px;
+  max-height: 160px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  overflow-y: auto;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.apple-prompt-box--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.apple-prompt-placeholder {
+  color: var(--text-dim);
+}
+
+.apple-prompt-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background-color: var(--accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: appleBlink 1s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
+}
+
+@keyframes appleBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }

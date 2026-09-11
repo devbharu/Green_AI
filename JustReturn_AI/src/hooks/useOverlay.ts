@@ -16,7 +16,7 @@ export function useOverlay() {
   const [error, setError] = useState('');
   const [apiKey, setApiKeyState] = useState('');
   const [model, setModelState] = useState('gemma4:31b-cloud');
-  const [systemPrompt, setSystemPromptState] = useState('You are an elite coding assistant. You MUST format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.');
+  const [systemPrompt, setSystemPromptState] = useState('You are an elite coding assistant. For coding questions, you MUST provide the code with NO comments in it. Format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.\n\nFor Multiple Choice Questions (MCQs), provide the direct answer option first, and at the end provide a little explanation.');
   const solutionRef = useRef('');
 
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;

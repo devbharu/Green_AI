@@ -30,7 +30,7 @@ build/
 dist/
 dist-electron/
 release/
-output/
+output*/
 
 # Environment variables
 .env

@@ -25,7 +25,7 @@ export const ScreenshotQueue = React.memo(function ScreenshotQueue({ screenshots
   const hasScreenshots = screenshots.length > 0;
 
   return (
-    <div className="sq-root" onMouseDown={(e) => e.preventDefault()}>
+    <div className="sq-root">
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className={`sq-header ${hasScreenshots ? 'sq-header--bordered' : ''}`}>

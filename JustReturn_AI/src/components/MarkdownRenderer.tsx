@@ -21,13 +21,12 @@ const MarkdownComponents: any = {
 
     if (!inline && match) {
       return (
-        <div className="code-block-wrapper" onMouseDown={(e) => e.preventDefault()}>
+        <div className="code-block-wrapper">
           <div className="code-header">
             <span className="code-lang">{lang}</span>
             <button
               className="copy-btn"
               onClick={(e) => handleCopy(codeString, e)}
-              onMouseDown={(e) => e.preventDefault()}
               title="Copy to clipboard"
             >
               Copy
