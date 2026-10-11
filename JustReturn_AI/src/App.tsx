@@ -11,8 +11,8 @@ export default function App() {
     view,
     screenshots, solution,
     isProcessing, error,
-    apiKey, model, systemPrompt,
-    saveApiKey, saveModel, saveSystemPrompt,
+    apiKey, model, systemPrompt, aiProvider, omnirouteModel,
+    saveApiKey, saveModel, saveSystemPrompt, saveAiProvider, saveOmnirouteModel,
   } = useOverlay();
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -93,9 +93,13 @@ export default function App() {
               apiKey={apiKey}
               model={model}
               systemPrompt={systemPrompt}
+              aiProvider={aiProvider}
+              omnirouteModel={omnirouteModel}
               onSaveApiKey={saveApiKey}
               onSaveModel={saveModel}
               onSaveSystemPrompt={saveSystemPrompt}
+              onSaveAiProvider={saveAiProvider}
+              onSaveOmnirouteModel={saveOmnirouteModel}
             />
           </div>
         )}

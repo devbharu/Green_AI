@@ -1,12 +1,12 @@
 {
   "name": "green-ai",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "Invisible AI overlay — invisible to screen sharing",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "dev:electron": "tsc -p tsconfig.electron.json && wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "start": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
     "build:all": "vite build && tsc -p tsconfig.electron.json && electron-builder -mw",

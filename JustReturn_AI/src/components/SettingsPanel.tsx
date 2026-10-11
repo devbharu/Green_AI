@@ -4,18 +4,22 @@ interface Props {
   apiKey: string;
   model: string;
   systemPrompt: string;
+  aiProvider: 'ollama' | 'omniroute';
+  omnirouteModel: string;
   onSaveApiKey: (key: string) => void;
   onSaveModel: (model: string) => void;
   onSaveSystemPrompt: (prompt: string) => void;
+  onSaveAiProvider: (provider: 'ollama' | 'omniroute') => void;
+  onSaveOmnirouteModel: (model: string) => void;
 }
 
 const MODELS = [
-  { value: 'gemma4:31b-cloud',       label: 'gemma4:31b-cloud', vision: true },
-  { value: 'gpt-oss:120b-cloud',     label: 'gpt-oss:120b-cloud', vision: false },
-  { value: 'qwen3-coder:480b-cloud', label: 'qwen3-coder:480b-cloud', vision: false },
-  { value: 'gpt-oss:20b-cloud',      label: 'gpt-oss:20b-cloud', vision: false },
-  { value: 'minimax-m3:cloud',       label: 'minimax-m3:cloud', vision: true },
-  { value: 'nemotron-3-super:cloud', label: 'nemotron-3-super:cloud', vision: false },
+  { value: 'nemotron-3-ultra:cloud',    label: 'nemotron-3-ultra:cloud', vision: false },
+  { value: 'nemotron-3-super:cloud',    label: 'nemotron-3-super:cloud', vision: false },
+  { value: 'nemotron-3-nano:30b-cloud', label: 'nemotron-3-nano:30b-cloud', vision: false },
+  { value: 'gemma4:31b-cloud',          label: 'gemma4:31b-cloud', vision: true },
+  { value: 'gpt-oss:120b-cloud',        label: 'gpt-oss:120b-cloud', vision: false },
+  { value: 'gpt-oss:20b-cloud',         label: 'gpt-oss:20b-cloud', vision: false },
 ];
 
 const SHORTCUTS = [
@@ -101,8 +105,8 @@ function SystemPromptInput({ value, onChange }: { value: string; onChange: (v: s
 }
 
 export const SettingsPanel = React.memo(function SettingsPanel({
-  apiKey, model, systemPrompt,
-  onSaveApiKey, onSaveModel, onSaveSystemPrompt
+  apiKey, model, systemPrompt, aiProvider, omnirouteModel,
+  onSaveApiKey, onSaveModel, onSaveSystemPrompt, onSaveAiProvider, onSaveOmnirouteModel
 }: Props) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const selectedLabel = MODELS.find(m => m.value === model)?.label || model;
@@ -118,7 +122,26 @@ export const SettingsPanel = React.memo(function SettingsPanel({
       {/* ── Body ───────────────────────────────────────────────── */}
       <div className="stg-body">
 
+        {/* Provider Toggle */}
+        <div className="stg-section" style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center' }}>
+          <button 
+            className={`stg-dropdown-trigger ${aiProvider === 'ollama' ? 'stg-dropdown-option--active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={() => onSaveAiProvider('ollama')}
+          >
+            Ollama
+          </button>
+          <button 
+            className={`stg-dropdown-trigger ${aiProvider === 'omniroute' ? 'stg-dropdown-option--active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={() => onSaveAiProvider('omniroute')}
+          >
+            Omniroute
+          </button>
+        </div>
+
         {/* Model */}
+        {aiProvider === 'ollama' && (
         <div className="stg-section">
           <label className="stg-label">Model</label>
           <div
@@ -164,6 +187,34 @@ export const SettingsPanel = React.memo(function SettingsPanel({
           </div>
           <span className="stg-hint">Select the AI model for solving</span>
         </div>
+        )}
+
+        {aiProvider === 'omniroute' && (
+          <>
+            <div className="stg-section">
+              <label className="stg-label">Combo Name (Model)</label>
+              <input
+                type="text"
+                className="stg-textarea"
+                style={{ height: '36px', minHeight: '36px', resize: 'none', padding: '8px' }}
+                value={omnirouteModel}
+                onChange={(e) => onSaveOmnirouteModel(e.target.value)}
+                placeholder="e.g. your-combo-name"
+              />
+            </div>
+            <div className="stg-section">
+              <label className="stg-label">API Key</label>
+              <input
+                type="password"
+                className="stg-textarea"
+                style={{ height: '36px', minHeight: '36px', resize: 'none', padding: '8px' }}
+                value={apiKey}
+                onChange={(e) => onSaveApiKey(e.target.value)}
+                placeholder="sk-..."
+              />
+            </div>
+          </>
+        )}
 
         {/* System Prompt */}
         <div className="stg-section">

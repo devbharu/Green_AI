@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getModel: () => ipcRenderer.invoke('get-model'),
   setSystemPrompt: (prompt: string) => ipcRenderer.invoke('set-system-prompt', prompt),
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
+  setAiProvider: (provider: 'ollama' | 'omniroute') => ipcRenderer.invoke('set-ai-provider', provider),
+  getAiProvider: () => ipcRenderer.invoke('get-ai-provider'),
+  setOmnirouteModel: (model: string) => ipcRenderer.invoke('set-omniroute-model', model),
+  getOmnirouteModel: () => ipcRenderer.invoke('get-omniroute-model'),
   
   // Utilities
   copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),

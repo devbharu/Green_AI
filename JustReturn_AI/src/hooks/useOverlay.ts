@@ -15,8 +15,10 @@ export function useOverlay() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
   const [apiKey, setApiKeyState] = useState('');
-  const [model, setModelState] = useState('gemma4:31b-cloud');
+  const [model, setModelState] = useState('nemotron-3-ultra:cloud');
   const [systemPrompt, setSystemPromptState] = useState('You are an elite coding assistant. For coding questions, you MUST provide the code with NO comments in it. Format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.\n\nFor Multiple Choice Questions (MCQs), provide the direct answer option first, and at the end provide a little explanation.');
+  const [aiProvider, setAiProviderState] = useState<'ollama' | 'omniroute'>('ollama');
+  const [omnirouteModel, setOmnirouteModelState] = useState('');
   const solutionRef = useRef('');
 
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
@@ -27,6 +29,8 @@ export function useOverlay() {
     void api.getApiKey().then(setApiKeyState);
     void api.getModel().then(setModelState);
     void api.getSystemPrompt().then(setSystemPromptState);
+    void api.getAiProvider().then(setAiProviderState);
+    void api.getOmnirouteModel().then(setOmnirouteModelState);
   }, [api]);
 
   // Subscribe to main-process events
@@ -143,6 +147,16 @@ export function useOverlay() {
     if (api) await api.setSystemPrompt(p);
   }, [api]);
 
+  const saveAiProvider = useCallback(async (p: 'ollama' | 'omniroute') => {
+    setAiProviderState(p);
+    if (api) await api.setAiProvider(p);
+  }, [api]);
+
+  const saveOmnirouteModel = useCallback(async (m: string) => {
+    setOmnirouteModelState(m);
+    if (api) await api.setOmnirouteModel(m);
+  }, [api]);
+
   const cancelProcessing = useCallback(async () => {
     if (api) await api.cancelProcessing();
     setIsProcessing(false);
@@ -158,11 +172,15 @@ export function useOverlay() {
     apiKey,
     model,
     systemPrompt,
+    aiProvider,
+    omnirouteModel,
     processScreenshots,
     clearQueue,
     saveApiKey,
     saveModel,
     saveSystemPrompt,
+    saveAiProvider,
+    saveOmnirouteModel,
     cancelProcessing,
   };
 }

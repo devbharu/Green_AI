@@ -16,6 +16,10 @@ export interface ElectronAPI {
   getModel: () => Promise<string>;
   setSystemPrompt: (prompt: string) => Promise<void>;
   getSystemPrompt: () => Promise<string>;
+  setAiProvider: (provider: 'ollama' | 'omniroute') => Promise<void>;
+  getAiProvider: () => Promise<'ollama' | 'omniroute'>;
+  setOmnirouteModel: (model: string) => Promise<void>;
+  getOmnirouteModel: () => Promise<string>;
   copyToClipboard: (text: string) => Promise<void>;
   readFromClipboard: () => Promise<string>;
   onScreenshotTaken: (cb: (data: { path: string; preview: string }) => void) => () => void;

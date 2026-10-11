@@ -33,6 +33,8 @@ interface AppState {
   apiKey: string;
   model: string;
   systemPrompt: string;
+  aiProvider: 'ollama' | 'omniroute';
+  omnirouteModel: string;
   shortcutsHelper: ShortcutsHelper | null;
   abortController: AbortController | null;
 }
@@ -49,8 +51,10 @@ const state: AppState = {
   screenshotQueue: [],
   isProcessing: false,
   apiKey: '',
-  model: 'gemma4:31b-cloud',
+  model: 'nemotron-3-ultra:cloud',
   systemPrompt: 'You are an elite coding assistant. For coding questions, you MUST provide the code with NO comments in it. Format your response exactly like this:\n\n```[language]\n<your complete code here>\n```\n\nExplanation:\n<your explanation here>\n\nDo NOT write any text before the first code block.\n\nFor Multiple Choice Questions (MCQs), provide the direct answer option first, and at the end provide a little explanation.',
+  aiProvider: 'ollama',
+  omnirouteModel: '',
   shortcutsHelper: null,
   abortController: null,
 };
@@ -111,12 +115,12 @@ async function getImagePreview(filePath: string): Promise<string> {
 // ─── AI Processing (Ollama local) ─────────────────────────────────────────────
 
 const MODELS = [
-  { value: 'gemma4:31b-cloud',       vision: true },
-  { value: 'gpt-oss:120b-cloud',     vision: false },
-  { value: 'qwen3-coder:480b-cloud', vision: false },
-  { value: 'gpt-oss:20b-cloud',      vision: false },
-  { value: 'minimax-m3:cloud',       vision: true },
-  { value: 'nemotron-3-super:cloud', vision: false },
+  { value: 'nemotron-3-ultra:cloud',    vision: false },
+  { value: 'nemotron-3-super:cloud',    vision: false },
+  { value: 'nemotron-3-nano:30b-cloud', vision: false },
+  { value: 'gemma4:31b-cloud',          vision: true },
+  { value: 'gpt-oss:120b-cloud',        vision: false },
+  { value: 'gpt-oss:20b-cloud',         vision: false },
 ];
 
 function isVisionModel(modelName: string): boolean {
@@ -158,9 +162,10 @@ async function processScreenshots(): Promise<void> {
   try {
     let images: string[] | undefined = undefined;
     let textContent = 'Solve the problem in these images. Follow the formatting instructions in the system prompt.';
+    const isOmni = state.aiProvider === 'omniroute';
 
-    if (isVisionModel(state.model)) {
-      // Build base64 images array for Ollama
+    if (isOmni || isVisionModel(state.model)) {
+      // Build base64 images array
       images = state.screenshotQueue.map((imgPath) => {
         const data = fs.readFileSync(imgPath);
         return data.toString('base64');
@@ -170,8 +175,10 @@ async function processScreenshots(): Promise<void> {
       textContent = `Solve the problem shown in the following extracted text from screenshots:\n\n${extractedText}\n\nFollow the formatting instructions in the system prompt.`;
     }
 
+    const reqModel = isOmni ? state.omnirouteModel : state.model;
+
     const payload: any = {
-      model: state.model,
+      model: reqModel,
       messages: [],
       stream: true,
     };
@@ -183,19 +190,36 @@ async function processScreenshots(): Promise<void> {
       });
     }
 
-    payload.messages.push({
-      role: 'user',
-      content: textContent,
-    });
-
-    if (images) {
-      payload.messages[payload.messages.length - 1].images = images;
+    if (images && images.length > 0) {
+      if (isOmni) {
+        const contentArr: any[] = [{ type: 'text', text: textContent }];
+        for (const img of images) {
+          contentArr.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${img}` } });
+        }
+        payload.messages.push({ role: 'user', content: contentArr });
+      } else {
+        payload.messages.push({ role: 'user', content: textContent, images });
+      }
+    } else {
+      payload.messages.push({
+        role: 'user',
+        content: textContent,
+      });
     }
 
     const body = JSON.stringify(payload);
 
-    const options = {
-      hostname: 'localhost',
+    const options = isOmni ? {
+      hostname: '127.0.0.1',
+      port: 20128,
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.apiKey}`,
+      },
+    } : {
+      hostname: '127.0.0.1',
       port: 11434,
       path: '/api/chat',
       method: 'POST',
@@ -241,16 +265,34 @@ async function processScreenshots(): Promise<void> {
           buffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (!line.trim()) continue;
+            const trimmed = line.trim();
+            if (!trimmed) continue;
             try {
-              const parsed = JSON.parse(line);
-              if (parsed.message?.content) {
-                queueIpcChunk(parsed.message.content);
-              }
-              if (parsed.done && !doneReceived) {
-                doneReceived = true;
-                flushIpcBatch();
-                state.mainWindow?.webContents.send('ai-response-done');
+              if (isOmni) {
+                if (trimmed.startsWith('data: ')) {
+                  const dataStr = trimmed.slice(6);
+                  if (dataStr === '[DONE]') {
+                    if (!doneReceived) {
+                      doneReceived = true;
+                      flushIpcBatch();
+                      state.mainWindow?.webContents.send('ai-response-done');
+                    }
+                    continue;
+                  }
+                  const parsed = JSON.parse(dataStr);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) queueIpcChunk(content);
+                }
+              } else {
+                const parsed = JSON.parse(trimmed);
+                if (parsed.message?.content) {
+                  queueIpcChunk(parsed.message.content);
+                }
+                if (parsed.done && !doneReceived) {
+                  doneReceived = true;
+                  flushIpcBatch();
+                  state.mainWindow?.webContents.send('ai-response-done');
+                }
               }
             } catch {
               // ignore parse errors on partial lines
@@ -272,12 +314,24 @@ async function processScreenshots(): Promise<void> {
           // Process any remaining buffer
           if (buffer.trim()) {
             try {
-              const parsed = JSON.parse(buffer);
-              if (parsed.message?.content) {
-                queueIpcChunk(parsed.message.content);
-              }
-              if (parsed.done && !doneReceived) {
-                doneReceived = true;
+              if (isOmni) {
+                const trimmed = buffer.trim();
+                if (trimmed.startsWith('data: ')) {
+                  const dataStr = trimmed.slice(6);
+                  if (dataStr !== '[DONE]') {
+                    const parsed = JSON.parse(dataStr);
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    if (content) queueIpcChunk(content);
+                  }
+                }
+              } else {
+                const parsed = JSON.parse(buffer);
+                if (parsed.message?.content) {
+                  queueIpcChunk(parsed.message.content);
+                }
+                if (parsed.done && !doneReceived) {
+                  doneReceived = true;
+                }
               }
             } catch { /* ignore */ }
           }
@@ -296,10 +350,11 @@ async function processScreenshots(): Promise<void> {
       });
 
       req.on('error', (err: any) => {
+        const providerName = isOmni ? 'Omniroute' : 'Ollama';
         if (err.code === 'ECONNREFUSED') {
-          reject(new Error("Could not connect to Ollama. Please ensure the Ollama app is running on your machine."));
+          reject(new Error(`Could not connect to ${providerName}. Please ensure ${providerName} is running on your machine.`));
         } else {
-          reject(new Error(`Failed to communicate with Ollama: ${err.message}`));
+          reject(new Error(`Failed to communicate with ${providerName}: ${err.message}`));
         }
       });
       req.write(body);
@@ -703,9 +758,18 @@ function registerIpcHandlers(): void {
   ipcMain.handle('set-api-key', (_e, key: string) => { state.apiKey = key; });
   ipcMain.handle('get-api-key', () => state.apiKey);
   ipcMain.handle('set-model', (_e, model: string) => { state.model = model; });
-  ipcMain.handle('get-model', () => state.model);
+  ipcMain.handle('get-model', () => {
+    const valid = MODELS.some(m => m.value === state.model);
+    if (!valid) state.model = 'nemotron-3-ultra:cloud';
+    return state.model;
+  });
   ipcMain.handle('set-system-prompt', (_e, prompt: string) => { state.systemPrompt = prompt; });
   ipcMain.handle('get-system-prompt', () => state.systemPrompt);
+  
+  ipcMain.handle('set-ai-provider', (_e, provider: 'ollama' | 'omniroute') => { state.aiProvider = provider; });
+  ipcMain.handle('get-ai-provider', () => state.aiProvider);
+  ipcMain.handle('set-omniroute-model', (_e, model: string) => { state.omnirouteModel = model; });
+  ipcMain.handle('get-omniroute-model', () => state.omnirouteModel);
   
   ipcMain.handle('copy-to-clipboard', (_e, text: string) => {
     clipboard.writeText(text);
